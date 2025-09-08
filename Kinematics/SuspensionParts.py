@@ -15,14 +15,17 @@ class Wishbone:
         
         unit_vec = vec / mag
         return unit_vec
-
+    
+    def state(self):
+        return self.balljoint
+    
     def rotation(self, theta):
         # Step 1: Get the unit vector of the axis
         axis = self.axis_of_rot()
 
         # Step 2: Translate the point so axis_point1 becomes the origin
         translated_point = self.balljoint - self.rear
-        print("rear")
+        
         # Step 3: Build the rotation matrix using Rodrigues' rotation formula
         ux, uy, uz = axis
         cos_t = np.cos(theta)
@@ -65,3 +68,43 @@ class Upright:
     def kingpin_rotate(self):
         return 1
 
+# define chassis pickup points
+# origin at center of rear axle on ground
+# F/R - front/rear of car
+# r/l - right/left
+# U/L - upper/lower
+# 1/2/3 - 1=front/2=rear/3=upright of the specific wishbone
+
+# Should make control arm and upright classes to make this easier
+
+x1 = np.array([1,0,0])
+x2 = np.array([0,0,0])
+x3 = np.array([.5,-.5,0])
+
+test_wishbone = Wishbone(x1, x2, x3)
+
+# front right corner
+# upper
+FrU1 = np.array([1.9,-.4,.4])
+FrU2 = np.array([1.7,-.4,.4])
+FrU3 = np.array([1.8,-.6,.4])
+
+# lower
+FrL1 = np.array([1.9,-.4,.2])
+FrL2 = np.array([1.7,-.4,.2])
+FrL3 = np.array([1.8,-.6,.2])
+
+FR_upper = Wishbone(FrU1, FrU2, FrU3)
+FR_lower = Wishbone(FrL1, FrL2, FrL3)
+
+
+# front right upright
+joint_dist = .5
+# define coords for ball joints and toe link so u can apply the same axis/ rotation checks to find 
+# how far the upright rotated
+# also define axle somehow to do same kind of math for wheel angles
+
+theta = np.deg2rad(-90)
+# print(theta)
+print(FR_upper.rotation(theta))
+print(test_wishbone.rotation(theta))
