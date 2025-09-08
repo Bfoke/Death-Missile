@@ -16,7 +16,7 @@ class Wishbone:
         unit_vec = vec / mag
         return unit_vec
     
-    def state(self):
+    def balljoint_pos(self):
         return self.balljoint
     
     def rotation(self, theta):
