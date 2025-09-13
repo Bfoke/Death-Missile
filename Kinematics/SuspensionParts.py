@@ -53,7 +53,7 @@ class Wishbone:
         rotated_point = rotated_translated_point + self.rear
 
         #update balljoint position
-        self.balljoint = rotated_point
+        # self.balljoint = rotated_point
         return rotated_point
 
 class Upright:
@@ -64,8 +64,18 @@ class Upright:
         self.axle_base = axle_base
         self.axle_tip = axle_tip
         self.axle_vec = axle_tip - axle_base
+        self.joint_dist = np.linalg.norm(upper_balljoint - lower_balljoint)
 
     def kingpin_rotate(self):
+        return 1
+    
+class Corner:
+    def __init__(self, upper_wb, lower_wb, upright):
+        self.u_wb = upper_wb
+        self.l_wb = lower_wb
+        self.upright = upright
+
+    def rotate(theta):
         return 1
 
 # define chassis pickup points
