@@ -75,8 +75,29 @@ class Corner:
         self.l_wb = lower_wb
         self.upright = upright
 
-    def rotate(theta):
-        return 1
+    def rotate(self,theta, dTheta=.01):
+        upper_pos = self.u_wb.rotation(theta)
+        dtheta = np.deg2rad(dTheta)
+        max_angle = np.deg2rad(20)
+        steps = int(max_angle/dtheta)
+
+        theta = 0
+        error = 10
+        theta_close = 0
+        closest_dist = 0
+        jd = self.upright.joint_dist
+
+        for i in range(steps):
+            lower_pos = self.l_wb.rotation(theta)
+            dist = np.linalg.norm(upper_pos - lower_pos)
+            theta += dtheta
+        
+            if abs(dist - jd) < abs(closest_dist - jd):
+                closest_dist = dist
+                theta_close = theta
+        
+
+        return (self.l_wb.rotation(theta_close))
 
 # define chassis pickup points
 # origin at center of rear axle on ground
