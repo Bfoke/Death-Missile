@@ -3,10 +3,11 @@ import numpy as np
 '''
 Coordinate system for everything is:
 Origin at center of rear axle on ground plane
-X - forward
+X - Forward
 Y - Left
 Z - Up
 '''
+
 class Wishbone:
     def __init__(self, front: np.array, rear: np.array, balljoint: np.array):
         #add rotation limits to restrict travel
@@ -57,21 +58,37 @@ class Wishbone:
         # Step 5: Translate back to the original coordinate system
         rotated_point = rotated_translated_point + self.rear
 
-        #update balljoint position
-        # self.balljoint = rotated_point
         return rotated_point
 
 class Upright:
-    def __init__(self, upper_balljoint, lower_balljoint, toe_link, axle_base, axle_tip):
+    def __init__(self, upper_balljoint, lower_balljoint, toe_root, toe_link, axle_base, axle_tip):
+        # roots are points along the vector between upper and lower balljoint that the orthogonal projection of toe_link and axle tip go to
+        # they are used to locate the toe_link and axle tip relative to the balljoint vector
         self.upper_balljoint = upper_balljoint
         self.lower_balljoint = lower_balljoint
+        self.toe_root = toe_root
         self.toe_link = toe_link
         self.axle_base = axle_base
         self.axle_tip = axle_tip
         self.axle_vec = axle_tip - axle_base
         self.joint_dist = np.linalg.norm(upper_balljoint - lower_balljoint)
 
-    def kingpin_rotate(self):
+    def kingpin_rotate(self, upper_bj, lower_bj, theta):
+        vec = upper_bj - lower_bj
+        mag = np.linalg.norm(vec)
+
+        if mag == 0:
+            raise ValueError("axis_of_rot unit vec length = 0")
+        
+        axis = vec / mag
+
+        ux, uy, uz = axis
+        cos_t = np.cos(theta)
+        sin_t = np.sin(theta)
+        one_minus_cos = 1 - cos_t
+
+        # for loop of every critical point in the upright:
+            # apply rotation transformation about unit_vec axis like in control arm class
         return 1
     
 class Corner:
@@ -116,9 +133,11 @@ class Rack:
 
         if steer_dist > (self.range/2):
             raise ValueError("steering exceeds rack range")
+        
         str = np.array([0,steer_dist,0])
         right_rod_end = self.right + str
         left_rod_end = self.left + str
+
         return left_rod_end, right_rod_end
     
     # add another function later to return steering wheel theta as function of rack travel using range and rotations
