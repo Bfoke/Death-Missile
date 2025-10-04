@@ -1,11 +1,15 @@
 import numpy as np
-
+import jax.numpy as jnp
+from scipy.optimize import minimize_scalar
+from scipy.optimize import root_scalar
 '''
 Coordinate system for everything is:
 Origin at center of rear axle on ground plane
 X - Forward
 Y - Left
 Z - Up
+
+Use Kabsch algorithm for rigid body translation + rotation of upright
 '''
 
 class Wishbone:
@@ -72,6 +76,8 @@ class Upright:
         self.axle_tip = axle_tip
         self.axle_vec = axle_tip - axle_root
         self.joint_dist = np.linalg.norm(upper_balljoint - lower_balljoint)
+        self.upper_toe_dist = np.linalg.norm(upper_balljoint - toe_link)
+        self.lower_toe_dist = np.linalg.norm(lower_balljoint - toe_link)
 
     def kingpin_rotate(self, theta, upper_bj, lower_bj, toeLink, axleTip):
         vec = upper_bj - lower_bj
@@ -112,7 +118,7 @@ class Corner:
         self.l_wb = lower_wb #wishbone object
         self.upright = upright #upright object
 
-    def travel(self, theta, steps = 1000, theta_range = 20):
+    def travel_old(self, theta, steps = 1000, theta_range = 20): #manual stepping through fixed theta range
         upper_pos = self.u_wb.rotation(theta) #rotate upper wishbone
 
         dTheta = np.linspace(0,(theta_range*np.sign(theta)), steps)
@@ -130,6 +136,75 @@ class Corner:
                 theta_close = dT
 
         return self.l_wb.rotation(theta_close) #return lower balljoint position that maintains upper/lower balljoint distance
+    
+    def wishbone_travel(self, upper_theta, theta_bounds=(-0.5, 0.5)):
+        """
+        Solve for lower wishbone theta such that the distance between upper and
+        lower balljoints equals the upright joint distance.
+        """
+
+        # Fixed position of upper balljoint
+        upper_pos = self.u_wb.rotation(upper_theta)
+        joint_dist = self.upright.joint_dist
+
+        # Define the function whose root we want to find
+        def f(theta_l):
+            lower_pos = self.l_wb.rotation(theta_l)
+            dist = jnp.linalg.norm(upper_pos - lower_pos)
+            return dist - joint_dist
+
+        # Use root-finding to solve f(theta) = 0
+        result = root_scalar(f, method='brentq', bracket=theta_bounds)
+
+        if not result.converged:
+            raise RuntimeError("Failed to solve for lower wishbone theta")
+
+        best_theta = result.root
+        return self.l_wb.rotation(best_theta)
+    
+    def tie_rod_pos_solve(self, upper_theta, rack_pos, tieRod, upright):
+        # use "trilaterate" method to find position of toe link on the upright
+
+        #find upper wishbone balljoint pos
+        upper_pos = self.u_wb.rotation(upper_theta)
+        upper_dist = upright.upper_toe_dist
+        
+        #find lower wishbone balljoint pos
+        lower_pos = self.wishbone_travel(upper_theta)
+        lower_dist = upright.lower_toe_dist
+
+        #rack_pos gives third point
+        tie_rod_dist = tieRod.length
+
+        P1, P2, P3 = map(np.array, (upper_pos, lower_pos, rack_pos))
+
+        # Create unit vectors
+        ex = (P2 - P1)
+        ex /= np.linalg.norm(ex)
+        i = np.dot(ex, P3 - P1)
+        temp = P3 - P1 - i * ex
+        ey = temp / np.linalg.norm(temp)
+        ez = np.cross(ex, ey)
+
+        d = np.linalg.norm(P2 - P1)
+        j = np.dot(ey, P3 - P1)
+
+        # Coordinates in the new system
+        x = (upper_dist**2 - lower_dist**2 + d**2) / (2 * d)
+        y = (upper_dist**2 - tie_rod_dist**2 + i**2 + j**2 - 2 * i * x) / (2 * j)
+
+        # Solve for z^2, and check if real solution exists
+        z_sq = upper_dist**2 - x**2 - y**2
+        if z_sq < 0:
+            raise ValueError("No real solution exists (spheres don't intersect)")
+
+        z = np.sqrt(z_sq)
+
+        # Convert back to original coordinate system
+        result1 = P1 + x * ex + y * ey + z * ez
+        result2 = P1 + x * ex + y * ey - z * ez
+
+        return result1 if result1[0] > result2[0] else result2 # this returns the solution where the tie rod is more forward corresponding with rack in front of wheels
 
 class Rack:
     def __init__(self, right, left, range, rotations):
