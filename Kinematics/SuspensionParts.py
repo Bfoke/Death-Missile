@@ -79,7 +79,7 @@ class Upright:
         self.upper_toe_dist = np.linalg.norm(upper_balljoint - toe_link)
         self.lower_toe_dist = np.linalg.norm(lower_balljoint - toe_link)
 
-    def kingpin_rotate(self, theta, upper_bj, lower_bj, toeLink, axleTip):
+    def kingpin_rotate(self, theta, upper_bj, lower_bj, toeLink, axleTip): #unnecessary with full upright rotate function
         vec = upper_bj - lower_bj
         mag = np.linalg.norm(vec)
 
@@ -162,7 +162,7 @@ class Corner:
         best_theta = result.root
         return self.l_wb.rotation(best_theta)
     
-    def tie_rod_pos_solve(self, upper_theta, rack_pos, tieRod, upright):
+    def toe_link_pos_solve(self, upper_theta, rack_pos, tieRod, upright):
         # use "trilaterate" method to find position of toe link on the upright
 
         #find upper wishbone balljoint pos
@@ -205,6 +205,39 @@ class Corner:
         result2 = P1 + x * ex + y * ey - z * ez
 
         return result1 if result1[0] > result2[0] else result2 # this returns the solution where the tie rod is more forward corresponding with rack in front of wheels
+    
+    def rigid_transform(original_pos, new_pos): 
+        # original and new pos are upper wishbone, lower wishbone, and toe link positions before and after move
+        """
+        Computes the rigid transformation (rotation + translation) that aligns P to Q.
+
+        Parameters:
+            P: (N, 3) numpy array of source points
+            Q: (N, 3) numpy array of destination points
+
+        Returns:
+            R: (3, 3) rotation matrix
+            t: (3,) translation vector
+        """
+        # Centroids
+        P_centroid = np.mean(original_pos, axis=0)
+        Q_centroid = np.mean(new_pos, axis=0)
+
+        # Center the point sets
+        P_centered = original_pos - P_centroid
+        Q_centered = new_pos - Q_centroid
+
+        # Kabsch to find rotation
+        H = np.dot(P_centered.T, Q_centered)
+        U, S, Vt = np.linalg.svd(H)
+        d = np.sign(np.linalg.det(np.dot(Vt.T, U.T)))
+        D = np.diag([1, 1, d])
+        R = np.dot(Vt.T, np.dot(D, U.T))
+
+        # Translation
+        t = Q_centroid - np.dot(P_centroid, R)
+
+        return R, t #need to apply this rotation and translation to full upright assembly including tire
 
 class Rack:
     def __init__(self, right, left, range, rotations):
